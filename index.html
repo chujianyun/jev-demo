@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jev · System One 决策模型可视化演示</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #12161f; --panel2: #171c28; --border: #232a3a;
+    --text: #e6eaf2; --dim: #8b94a7; --accent: #4f8cff; --accent2: #22d3ee;
+    --green: #34d399; --amber: #fbbf24; --red: #f87171; --purple: #a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; min-height: 100vh; }
+  code, pre, textarea, input, select { font-family: "SF Mono", Menlo, Consolas, monospace; }
+
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: .5px; }
+  .logo span { color: var(--accent); }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--dim); }
+  .badge.sys1 { color: var(--accent2); border-color: var(--accent2); }
+  header .spacer { flex: 1; }
+  header label { font-size: 12px; color: var(--dim); }
+  header input[type=password], header input[type=text] { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; width: 300px; font-size: 12px; }
+  .seg { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: transparent; border: none; color: var(--dim); padding: 7px 12px; font-size: 12px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+
+  .hero { padding: 22px 24px 6px; max-width: 1400px; margin: 0 auto; }
+  .hero h1 { font-size: 22px; font-weight: 700; }
+  .hero p { color: var(--dim); font-size: 13px; margin-top: 6px; line-height: 1.7; }
+  .hero .stats { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: 12px; color: var(--dim); }
+  .stat b { color: var(--text); font-size: 15px; display: block; }
+
+  main { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(420px, 1.15fr); gap: 18px; padding: 16px 24px 40px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .card h2 { font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .tag { font-size: 10px; color: var(--dim); font-weight: 400; border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }
+
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .presets button { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; transition: .15s; }
+  .presets button:hover { border-color: var(--accent); color: var(--accent); }
+
+  textarea { width: 100%; background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; resize: vertical; min-height: 120px; }
+  textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+  .q { background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .q .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .q input, .q select { background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 12px; }
+  .q input.name { width: 130px; }
+  .q input.instr { flex: 1; }
+  .q .del { margin-left: auto; background: none; border: none; color: var(--dim); cursor: pointer; font-size: 15px; }
+  .q .del:hover { color: var(--red); }
+  .criteria { display: flex; flex-direction: column; gap: 6px; }
+  .criteria .crow { display: flex; gap: 6px; }
+  .criteria input { flex: 1; font-size: 11.5px; padding: 6px 9px; }
+  .criteria input.k { flex: 0 0 110px; color: var(--accent2); }
+  .mini { background: none; border: 1px dashed var(--border); color: var(--dim); border-radius: 8px; padding: 5px 10px; font-size: 11px; cursor: pointer; }
+  .mini:hover { color: var(--accent); border-color: var(--accent); }
+  .type-pill { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .type-noul { background: rgba(52,211,153,.12); color: var(--green); }
+  .type-choice { background: rgba(79,140,255,.12); color: var(--accent); }
+  .type-score { background: rgba(167,139,250,.12); color: var(--purple); }
+
+  .runbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .runbar .thresh { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+  input[type=range] { accent-color: var(--accent); }
+  #runBtn { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; color: #fff; font-weight: 700; font-size: 14px; padding: 11px 28px; border-radius: 10px; cursor: pointer; }
+  #runBtn:disabled { opacity: .5; cursor: wait; }
+  select.model { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+
+  .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--dim); }
+  .meta b { color: var(--text); }
+  .ans { background: var(--panel2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .ans .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .ans .qname { font-weight: 700; font-size: 13.5px; }
+  .ans .instr { color: var(--dim); font-size: 11.5px; }
+  .verdict { margin-left: auto; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+  .verdict.auto { background: rgba(52,211,153,.15); color: var(--green); }
+  .verdict.human { background: rgba(251,191,36,.15); color: var(--amber); }
+
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 12px; }
+  .bar-row .lbl { flex: 0 0 150px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .lbl.win { color: var(--text); font-weight: 700; }
+  .bar { flex: 1; height: 14px; background: var(--panel); border-radius: 7px; overflow: hidden; position: relative; }
+  .bar i { display: block; height: 100%; border-radius: 7px; background: var(--border); transition: width .5s ease; }
+  .bar i.win { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .bar i.t { background: linear-gradient(90deg, var(--green), #6ee7b7); }
+  .bar i.f { background: linear-gradient(90deg, var(--red), #fca5a5); }
+  .bar-row .val { flex: 0 0 56px; text-align: right; font-size: 12px; }
+  .thresh-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--amber); opacity: .9; }
+
+  .gauge { display: flex; align-items: center; gap: 14px; }
+  .gauge .num { font-size: 30px; font-weight: 800; }
+  .scale { position: relative; height: 16px; border-radius: 8px; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); flex: 1; }
+  .scale .dot { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--panel); transform: translate(-50%, -50%); box-shadow: 0 0 8px rgba(0,0,0,.5); }
+  .scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--dim); margin-top: 5px; }
+
+  pre.raw { background: #0a0d13; border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 11px; overflow: auto; max-height: 320px; color: #9fe8c1; }
+  details summary { cursor: pointer; font-size: 12px; color: var(--dim); margin: 4px 0 8px; }
+  .err { background: rgba(248,113,113,.1); border: 1px solid var(--red); color: var(--red); border-radius: 10px; padding: 12px; font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; }
+  .empty { color: var(--dim); font-size: 13px; text-align: center; padding: 40px 0; }
+  .hint { font-size: 11px; color: var(--dim); margin-top: 6px; line-height: 1.6; }
+  footer { text-align: center; color: var(--dim); font-size: 11px; padding: 20px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ <span>Jev</span> Playground</div>
+  <span class="badge sys1">System One 决策模型</span>
+  <span class="badge">typesafe/jev-1.13</span>
+  <div class="spacer"></div>
+  <div class="seg" id="modeSeg">
+    <button data-mode="live" class="on">实时 API</button>
+    <button data-mode="mock">模拟演示</button>
+  </div>
+  <input type="password" id="apiKey" placeholder="OpenRouter API Key（sk-or-v1-...）" title="仅保存在本机浏览器 localStorage">
+</header>
+
+<div class="hero">
+  <h1>输入「状态 + 类型化问题」，输出「带概率的结构化决策」</h1>
+  <p>Jev 不生成文本。你给它一个 state（工单、订单、任意 JSON）和一组问题（Noul 是否判断 / Choice 多选分类 / Score 量表打分），
+     它在一次请求里并行回答全部问题，每个答案都带校准过的概率——软件据此决定「自动执行」还是「转人工」。输入 $0.042 / 百万 token，输出免费，典型延迟 70–500ms。</p>
+  <div class="stats">
+    <div class="stat"><b>~0.1s</b>单次决策延迟</div>
+    <div class="stat"><b>$0.000081</b>单次决策成本</div>
+    <div class="stat"><b>193× / 444×</b>对比 LLM 快 / 便宜</div>
+    <div class="stat"><b>32K</b>上下文窗口</div>
+  </div>
+</div>
+
+<main>
+  <!-- 左列：输入 -->
+  <div class="col">
+    <div class="card">
+      <h2>① 场景预设 <span class="tag">一键填充 state + questions</span></h2>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="card">
+      <h2>② State（被评估的数据）<span class="tag">JSON 对象或纯文本</span></h2>
+      <textarea id="stateInput" spellcheck="false"></textarea>
+      <div class="hint">state 可以是纯文本，也可以是嵌套 JSON——把工单、订单、政策一起放进去，Jev 会综合判断。</div>
+    </div>
+
+    <div class="card">
+      <h2>③ Questions（类型化问题）<span class="tag">同一 state 并行评估，加问题几乎不增加延迟</span></h2>
+      <div id="questions"></div>
+      <button class="mini" onclick="addQuestion()">+ 添加问题</button>
+    </div>
+
+    <div class="card runbar">
+      <select class="model" id="modelSel">
+        <option value="typesafe/jev-1.13">typesafe/jev-1.13</option>
+        <option value="typesafe/jev-latest">typesafe/jev-latest</option>
+        <option value="typesafe/jev-1.13-20260917">typesafe/jev-1.13-20260917 (pinned)</option>
+      </select>
+      <div class="thresh">置信度阈值 <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.7" style="width:110px"> <b id="threshVal">0.70</b></div>
+      <button id="runBtn" onclick="run()">▶ 运行决策</button>
+    </div>
+  </div>
+
+  <!-- 右列：结果 -->
+  <div class="col">
+    <div class="card">
+      <h2>④ 决策结果 <span class="tag">概率 ≥ 阈值 → 自动执行；否则 → 转人工</span></h2>
+      <div class="meta" id="meta"></div>
+      <div id="results"><div class="empty">点击「运行决策」，查看 Jev 返回的类型化答案</div></div>
+      <div id="errBox"></div>
+      <details id="rawWrap" style="display:none">
+        <summary>查看原始 JSON 响应</summary>
+        <pre class="raw" id="rawJson"></pre>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>为什么不是直接问 LLM？</h2>
+      <div class="hint" style="font-size:12px">
+        LLM（系统二）逐 token 生成文本，应用层还要解析、校验、重试；Jev（系统一）一次并行输出带概率的结构，没有自由文本可以跑偏。
+        两者互补：LLM 负责开放推理，Jev 负责流程里高频的路由 / 分级 / 评分 / 守门判断——例如 LangChain 的 Auto Mode 会在高危工具执行前用 Jev 做风险评估。
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>Jev 可视化演示 · 模型由 TypeSafe AI 提供，经 OpenRouter Decisions API（/api/alpha/decisions）访问 · 模拟演示模式为本地生成的示意数据</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+
+// ---------- API key 持久化 ----------
+const keyInput = $('#apiKey');
+keyInput.value = localStorage.getItem('or_key') || '';
+keyInput.addEventListener('input', () => localStorage.setItem('or_key', keyInput.value.trim()));
+
+// ---------- 模式切换 ----------
+let mode = 'live';
+$('#modeSeg').addEventListener('click', e => {
+  if (e.target.dataset.mode) {
+    mode = e.target.dataset.mode;
+    document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  }
+});
+
+// ---------- 阈值 ----------
+$('#threshold').addEventListener('input', e => {
+  $('#threshVal').textContent = (+e.target.value).toFixed(2);
+  renderVerdicts();
+});
+const threshold = () => +$('#threshold').value;
+
+// ---------- 场景预设 ----------
+const PRESETS = {
+  '客服工单路由': {
+    state: {
+      ticket: { message: 'Stripe 支付回调已经 3 天没有成功，线上收款完全中断，再解决不了我们就换服务商并要求退款。', channel: 'email', customer_tier: 'enterprise' },
+      order: { total: 499.0, status: 'paid' }
+    },
+    questions: [
+      { name: 'is_urgent', type: 'noul', instr: '这张工单需要立即升级处理吗？标准：影响生产环境、持续超过 24 小时、或涉及资金损失。' },
+      { name: 'department', type: 'choice', instr: '应该路由给哪个部门？', criteria: { billing: '计费、扣款、退款、发票问题', technical: '集成失败、接口报错等技术故障', account: '账号、登录、权限问题', other: '以上都不是' } },
+      { name: 'frustration', type: 'score', instr: '客户当前的沮丧程度。', criteria: ['平静，只是询问', '明显不满，但语气克制', '愤怒，威胁流失或投诉'] },
+      { name: 'threatens_churn', type: 'noul', instr: '客户是否威胁取消、退款或转投竞争对手？' }
+    ]
+  },
+  '退款合规审批': {
+    state: {
+      ticket: { message: '你们重复扣了我两个月的费用，而且服务上周宕机了两天，我要求全额退款。' },
+      order: { total: 199.0, status: 'paid', charged_times: 2 },
+      policy: '重复扣款且服务不可用超过 24 小时的，支持全额退款；已使用超过 30 天的订阅不支持退款。'
+    },
+    questions: [
+      { name: 'refund_requested', type: 'noul', instr: '客户是否明确提出了退款诉求？' },
+      { name: 'policy_supports', type: 'noul', instr: '根据 state 中的退款政策，这笔订单是否符合退款条件？' },
+      { name: 'refund_scope', type: 'choice', instr: '如退款，应选择哪种范围？', criteria: { full: '全额退款', partial: '部分退款', credit: '转为账户余额', deny: '拒绝退款' } },
+      { name: 'risk', type: 'score', instr: '拒绝该请求的客户流失风险。', criteria: ['几乎无风险', '可能流失', '高概率流失并可能公开投诉'] }
+    ]
+  },
+  'Agent 工具调用守门': {
+    state: {
+      agent: 'coding-assistant',
+      pending_tool_call: { tool: 'bash', command: 'rm -rf ./node_modules && npm install', working_dir: '/home/user/important-project' },
+      context: '用户要求修复依赖报错。项目目录下有未提交的本地修改。'
+    },
+    questions: [
+      { name: 'is_destructive', type: 'noul', instr: '这次工具调用是否可能造成不可逆的数据丢失或破坏？' },
+      { name: 'risk_level', type: 'choice', instr: '这次调用的风险等级？', criteria: { safe: '只读或完全可逆', moderate: '可逆但影响范围较大', dangerous: '不可逆或影响工作目录外内容' } },
+      { name: 'should_confirm', type: 'noul', instr: '执行前是否应暂停并要求用户确认？' }
+    ]
+  },
+  '内容审核': {
+    state: '用户发帖：「这个产品就是骗局！大家千万别买，我已经向消协举报了，垃圾公司迟早倒闭。顺便加我微信领优惠券：wx12345」',
+    questions: [
+      { name: 'is_abusive', type: 'noul', instr: '内容是否包含辱骂、诽谤或人身攻击？' },
+      { name: 'has_spam', type: 'noul', instr: '内容是否包含广告、引流联系方式等垃圾信息？' },
+      { name: 'category', type: 'choice', instr: '内容的主要违规类型？', criteria: { none: '无违规', abuse: '辱骂诽谤', spam: '广告引流', illegal: '违法违规' } },
+      { name: 'severity', type: 'score', instr: '违规严重程度。', criteria: ['无需处理', '折叠或限流', '删除并警告'] }
+    ]
+  }
+};
+
+$('#presets').innerHTML = Object.keys(PRESETS).map(k => `<button onclick="loadPreset('${k}')">${k}</button>`).join('');
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  $('#stateInput').value = typeof p.state === 'string' ? p.state : JSON.stringify(p.state, null, 2);
+  $('#questions').innerHTML = '';
+  p.questions.forEach(q => addQuestion(q));
+}
+
+// ---------- 问题编辑器 ----------
+function addQuestion(q) {
+  q = q || { name: 'q' + (document.querySelectorAll('.q').length + 1), type: 'noul', instr: '', criteria: null };
+  const div = document.createElement('div');
+  div.className = 'q';
+  div.innerHTML = `
+    <div class="row">
+      <span class="type-pill type-${q.type}">${q.type}</span>
+      <input class="name" value="${esc(q.name)}" placeholder="字段名">
+      <select onchange="changeType(this)">
+        <option value="noul" ${q.type==='noul'?'selected':''}>Noul 是/否</option>
+        <option value="choice" ${q.type==='choice'?'selected':''}>Choice 多选</option>
+        <option value="score" ${q.type==='score'?'selected':''}>Score 量表</option>
+      </select>
+      <button class="del" onclick="this.closest('.q').remove()">✕</button>
+    </div>
+    <div class="row"><input class="instr" value="${esc(q.instr||'')}" placeholder="问题描述 / 判断标准（instructions）"></div>
+    <div class="criteria"></div>`;
+  $('#questions').appendChild(div);
+  renderCriteria(div, q.type, q.criteria);
+}
+
+function changeType(sel) {
+  const div = sel.closest('.q');
+  const pill = div.querySelector('.type-pill');
+  pill.className = 'type-pill type-' + sel.value;
+  pill.textContent = sel.value;
+  renderCriteria(div, sel.value, null);
+}
+
+function renderCriteria(div, type, criteria) {
+  const box = div.querySelector('.criteria');
+  if (type === 'noul') {
+    box.innerHTML = `<div class="hint">Noul：返回「陈述为真」的概率（0–1），无需选项。</div>`;
+  } else if (type === 'choice') {
+    const entries = criteria ? Object.entries(criteria) : [['option_a', ''], ['option_b', '']];
+    box.innerHTML = entries.map(([k, v]) =>
+      `<div class="crow"><input class="k" value="${esc(k)}" placeholder="选项"><input value="${esc(v)}" placeholder="选项描述（criteria）"></div>`).join('')
+      + `<button class="mini" onclick="addCritRow(this)">+ 选项</button>`;
+  } else {
+    const list = Array.isArray(criteria) ? criteria : ['低', '中', '高'];
+    box.innerHTML = `<div class="hint">Score：按顺序填写量表刻度（0 → ${list.length - 1}），返回连续分数。</div>` +
+      list.map(v => `<div class="crow"><input value="${esc(v)}" placeholder="刻度描述"></div>`).join('')
+      + `<button class="mini" onclick="addCritRow(this)">+ 刻度</button>`;
+  }
+}
+function addCritRow(btn) {
+  const crow = document.createElement('div');
+  crow.className = 'crow';
+  const isChoice = btn.closest('.q').querySelector('select').value === 'choice';
+  crow.innerHTML = isChoice ? `<input class="k" placeholder="选项"><input placeholder="选项描述">` : `<input placeholder="刻度描述">`;
+  btn.parentElement.insertBefore(crow, btn);
+}
+
+function collectQuestions() {
+  const out = {};
+  document.querySelectorAll('.q').forEach(div => {
+    const name = div.querySelector('.name').value.trim();
+    const type = div.querySelector('select').value;
+    const instr = div.querySelector('.instr').value.trim();
+    if (!name) return;
+    const q = { type, instructions: instr };
+    if (type === 'choice') {
+      q.criteria = {};
+      div.querySelectorAll('.crow').forEach(r => {
+        const k = r.querySelector('.k').value.trim();
+        const v = r.querySelector('input:not(.k)').value.trim();
+        if (k) q.criteria[k] = v;
+      });
+    } else if (type === 'score') {
+      q.criteria = [...div.querySelectorAll('.crow input')].map(i => i.value.trim()).filter(Boolean);
+    }
+    out[name] = q;
+  });
+  return out;
+}
+
+// ---------- 运行 ----------
+async function run() {
+  const btn = $('#runBtn');
+  const errBox = $('#errBox');
+  errBox.innerHTML = '';
+  let state;
+  const raw = $('#stateInput').value.trim();
+  try { state = JSON.parse(raw); } catch { state = raw; }
+  const questions = collectQuestions();
+  if (!Object.keys(questions).length) { errBox.innerHTML = `<div class="err">请至少添加一个问题。</div>`; return; }
+
+  btn.disabled = true; btn.textContent = '⏳ 决策中…';
+  const t0 = performance.now();
+  try {
+    const resp = await fetch('/api/decisions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': keyInput.value.trim() },
+      body: JSON.stringify({ model: $('#modelSel').value, state, questions, mock: mode === 'mock' })
+    });
+    const data = await resp.json();
+    const elapsed = Math.round(performance.now() - t0);
+    if (!resp.ok || data.error) {
+      const msg = (data.error && data.error.message) || JSON.stringify(data);
+      errBox.innerHTML = `<div class="err">⚠ ${esc(msg)}${resp.status === 401 ? '\n\n提示：当前 API Key 无效（401）。请检查 key，或切换到右上角「模拟演示」模式体验完整流程。' : ''}</div>`;
+      $('#results').innerHTML = '<div class="empty">请求失败</div>';
+      return;
+    }
+    data._elapsed = data.latency_ms || elapsed;
+    renderResults(data, questions);
+  } catch (e) {
+    errBox.innerHTML = `<div class="err">⚠ 请求失败：${esc(e.message)}<br>请确认已运行 <code>python3 server.py</code> 并通过它打开页面。</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ 运行决策';
+  }
+}
+
+// ---------- 结果渲染 ----------
+let lastAnswers = null;
+function renderResults(data, questions) {
+  lastAnswers = { data, questions };
+  const u = data.usage || {};
+  $('#meta').innerHTML = [
+    data.latency_ms || data._elapsed ? `<span>端到端延迟 <b>${data.latency_ms || data._elapsed} ms</b></span>` : '',
+    u.input_tokens != null ? `<span>输入 <b>${u.input_tokens}</b> tok</span>` : '',
+    u.output_tokens != null ? `<span>输出 <b>${u.output_tokens}</b> tok</span>` : '',
+    u.cost != null ? `<span>成本 <b>$${u.cost}</b></span>` : '',
+    data.provider ? `<span>提供方 <b>${esc(data.provider)}</b></span>` : '',
+    data.model ? `<span>模型 <b>${esc(data.model)}</b></span>` : '',
+  ].filter(Boolean).join('');
+
+  const answers = data.answers || {};
+  $('#results').innerHTML = Object.entries(answers).map(([name, a]) => renderAnswer(name, a, questions[name])).join('');
+  $('#rawWrap').style.display = 'block';
+  $('#rawJson').textContent = JSON.stringify(data, null, 2);
+}
+
+function confOf(a) {
+  if (a.type === 'noul') return Math.max(a.noul, 1 - a.noul);
+  return a.confidence != null ? a.confidence : null;
+}
+
+function renderAnswer(name, a, q) {
+  const instr = q && q.instructions ? esc(q.instructions) : '';
+  let body = '';
+  if (a.type === 'noul') {
+    const p = a.noul;
+    body = `
+      <div class="gauge"><div class="num" style="color:${p >= .5 ? 'var(--green)' : 'var(--red)'}">${(p * 100).toFixed(1)}%</div>
+      <div style="flex:1">
+        ${barRow('TRUE（为真）', p, p >= .5, 't')}
+        ${barRow('FALSE（为假）', 1 - p, p < .5, 'f')}
+      </div></div>`;
+  } else if (a.type === 'choice') {
+    const probs = a.probabilities || a.distribution || null;
+    if (probs) {
+      body = Object.entries(probs).sort((x, y) => y[1] - x[1])
+        .map(([k, v]) => barRow(k, v, k === a.choice)).join('');
+    } else {
+      body = barRow(`✓ ${a.choice}`, a.confidence != null ? a.confidence : 1, true);
+    }
+  } else if (a.type === 'score') {
+    const labels = (q && Array.isArray(q.criteria)) ? q.criteria : null;
+    const max = a.scale_max != null ? a.scale_max : (labels ? labels.length - 1 : Math.max(2, Math.ceil(a.score)));
+    const pct = max > 0 ? Math.min(a.score / max, 1) * 100 : 0;
+    body = `
+      <div class="gauge"><div class="num">${a.score}</div>
+        <div class="scale"><div class="dot" style="left:${pct}%"></div></div>
+        <div style="color:var(--dim);font-size:12px">/ ${max}</div></div>
+      ${labels ? `<div class="scale-labels">${labels.map(l => `<span>${esc(l)}</span>`).join('')}</div>` : ''}
+      ${a.confidence != null ? `<div class="hint">置信度 ${(a.confidence * 100).toFixed(1)}%</div>` : ''}`;
+  } else {
+    body = `<pre class="raw">${esc(JSON.stringify(a, null, 2))}</pre>`;
+  }
+  return `<div class="ans" data-conf="${confOf(a) != null ? confOf(a) : ''}">
+    <div class="head"><span class="type-pill type-${a.type}">${a.type}</span>
+      <div><div class="qname">${esc(name)}</div><div class="instr">${instr}</div></div>
+      <span class="verdict"></span></div>${body}</div>`;
+}
+
+function barRow(label, v, win, cls) {
+  return `<div class="bar-row"><span class="lbl ${win ? 'win' : ''}">${esc(label)}</span>
+    <div class="bar"><i class="${win ? 'win' : ''} ${cls || ''}" style="width:${(v * 100).toFixed(1)}%"></i>
+    <div class="thresh-mark" style="left:${threshold() * 100}%"></div></div>
+    <span class="val">${(v * 100).toFixed(1)}%</span></div>`;
+}
+
+function renderVerdicts() {
+  document.querySelectorAll('.ans').forEach(el => {
+    const c = parseFloat(el.dataset.conf);
+    const v = el.querySelector('.verdict');
+    if (isNaN(c)) { v.style.display = 'none'; return; }
+    const auto = c >= threshold();
+    v.className = 'verdict ' + (auto ? 'auto' : 'human');
+    v.textContent = auto ? `✓ 自动执行 ${(c * 100).toFixed(0)}%` : `⚠ 转人工 ${(c * 100).toFixed(0)}%`;
+  });
+}
+new MutationObserver(renderVerdicts).observe($('#results'), { childList: true });
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// 默认加载第一个预设
+loadPreset('客服工单路由');
+</script>
+</body>
+</html>
