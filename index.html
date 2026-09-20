@@ -471,6 +471,13 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ 
 
 // 默认加载第一个预设
 loadPreset('客服工单路由');
+
+// 打开 http://localhost:8787/#mockrun 可在加载后自动以模拟模式运行一次（便于演示与截图）
+if (location.hash === '#mockrun') {
+  mode = 'mock';
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === 'mock'));
+  run();
+}
 </script>
 </body>
 </html>
